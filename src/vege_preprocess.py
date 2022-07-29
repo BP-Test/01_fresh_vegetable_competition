@@ -1,5 +1,83 @@
+# Path settings
+import sys
+sys.path.append('../src/')      # import ç”¨ã®ãƒ‘ã‚¹ã®è¿½åŠ 
+
+# default packages
+import itertools
 import pandas as pd
 import numpy as np
+
+# For data preprocessing
+from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import LabelEncoder
+from collections import defaultdict
+
+
+class Weather():
+    """
+    # TODO: add description
+    """
+    def __init__(self) -> None:
+        """
+        # TODO: add description
+        """
+        self.data_path = '../data/'
+        
+        # åœ°åã®å¤‰æ›
+        # TODO: make a setting file.
+        self.update_area_map = {
+            'ç››å²¡': 'å²©æ‰‹', 'æµœæ¾': 'é™å²¡', 'åå¤å±‹': 'æ„›çŸ¥', 'æ°´æˆ¸': 'èŒ¨åŸ', 'ç†Šè°·': 'åŸ¼ç‰', 'å®‡éƒ½å®®': 'æ ƒæœ¨', 'å‰æ©‹': 'ç¾¤é¦¬', 
+            'å¾³å³¶': 'å¾³å³¶', 'é¹¿å…å³¶': 'é¹¿å…å³¶', 'é•·å´': 'é•·å´', 'åƒè‘‰': 'åƒè‘‰', 'é•·é‡': 'é•·é‡', 'é’æ£®': 'é’æ£®','ç†Šæœ¬': 'ç†Šæœ¬', 'æ±äº¬': 'æ±äº¬'
+            }
+        
+        # é›†è¨ˆå‡¦ç†ã®è¨˜éŒ²
+        # TODO: make a json file to record aggregate preprocessing
+        self.agg_plan = {
+            'monthly' : {
+                'scope' : ['area', 'year', 'month'],
+                'target_cols' : None,
+                'agg_types' : ['mean','max','min']
+            }
+        }
+        
+        # ãƒ†ã‚¹ãƒˆãƒ‡ãƒ¼ã‚¿ã§åˆ©ç”¨ã™ã‚‹åœ°ç†æƒ…å ±ã«çµã‚Šè¾¼ã¿
+        test_df = pd.read_csv(self.data_path + 'test.csv', usecols = ['area'])
+        self.test_area = set(itertools.chain.from_iterable(pd.Series(test_df.area.unique()).str.split('_').to_list()))
+    
+
+        
+    def read_csv(self):
+        self.whether = pd.read_csv('weather.csv')
+        
+        # æ—¥ä»˜å‡¦ç†
+        self.weather['date'] = pd.to_datetime(self.weather['date'].astype(str))
+        
+        # åœ°åã‚’éƒ½é“åºœçœŒåã«å¤‰æ›
+        self.weather['weather'] = self.weather.area.replace(self.update_area_map)
+        
+        
+    
+    
+    def add_agg_features(self, df, scope = ['area', 'year', 'month'], target_cols = None, agg_types = None, head_name = None):
+        
+        
+        if target_cols is None:
+            target_cols = df.head(1).select_dtypes(float).columns.to_list()
+        
+        if agg_types is None:
+            agg_types = ['mean','max','min']
+        
+        
+        # é›†è¨ˆ
+        tmp_df = df.groupby(scope)[target_cols].agg(agg_types).reset_index()
+        
+        # ãƒãƒ«ãƒã‚«ãƒ©ãƒ ã®è§£é™¤
+        if head_name:
+            return tmp_df.set_axis([head_name + '_' + col1 if col2 else col1 for col1, col2 in tmp_df.columns], axis=1)
+        else:
+            return tmp_df.set_axis([col1 + '_' + col2 if col2 else col1 for col1, col2 in tmp_df.columns], axis=1)
+
+
 
 
 def preprocess_weather(weather_data):
@@ -37,7 +115,7 @@ def preprocess_weather(weather_data):
         new_cols.append(col1)
 
     tmp_df.columns = new_cols
-    tmp_df['area'] = '‘S‘'
+    tmp_df['area'] = 'ï¿½Sï¿½ï¿½'
     tmp_df = tmp_df[gb_df.columns]
     tmp_df
     wea_df = pd.concat([gb_df, tmp_df])
@@ -74,12 +152,12 @@ def preprocess_train_test(train_data,test_data, weather_data):
     area_map = {}
 
     update_area_map = {
-    'Šâè':'·‰ª','‹{é':'å‘ä','Ã‰ª':'•l¼','‰«“ê':'“ß”e','_“Şì':'‰¡•l','ˆ¤’m':'–¼ŒÃ‰®','ˆïé':'…ŒË','–kŠC“¹':'‘ÑL','Še’n':'‘S‘',
-    '•ºŒÉ':'_ŒË','ì':'‚¼','é‹Ê':'ŒF’J','‘“à':'‘S‘','R—œ':'b•{','“È–Ø':'‰F“s‹{','ŒQ”n':'‘O‹´','ˆ¤•Q':'¼R'}
+    'ï¿½ï¿½ï¿½':'ï¿½ï¿½ï¿½ï¿½','ï¿½{ï¿½ï¿½':'ï¿½ï¿½ï¿½','ï¿½Ã‰ï¿½':'ï¿½lï¿½ï¿½','ï¿½ï¿½ï¿½ï¿½':'ï¿½ß”e','ï¿½_ï¿½Şï¿½':'ï¿½ï¿½ï¿½l','ï¿½ï¿½ï¿½m':'ï¿½ï¿½ï¿½Ã‰ï¿½','ï¿½ï¿½ï¿½':'ï¿½ï¿½ï¿½ï¿½','ï¿½kï¿½Cï¿½ï¿½':'ï¿½ÑL','ï¿½eï¿½n':'ï¿½Sï¿½ï¿½',
+    'ï¿½ï¿½ï¿½ï¿½':'ï¿½_ï¿½ï¿½','ï¿½ï¿½ï¿½ï¿½':'ï¿½ï¿½ï¿½ï¿½','ï¿½ï¿½ï¿½':'ï¿½Fï¿½J','ï¿½ï¿½ï¿½ï¿½':'ï¿½Sï¿½ï¿½','ï¿½Rï¿½ï¿½':'ï¿½bï¿½{','ï¿½È–ï¿½':'ï¿½Fï¿½sï¿½{','ï¿½Qï¿½n':'ï¿½Oï¿½ï¿½','ï¿½ï¿½ï¿½Q':'ï¿½ï¿½ï¿½R'}
 
     for yasai_area in yasai_areas:
         if yasai_area not in wea_areas and yasai_area not in update_area_map:
-            area_map[yasai_area] = '‘S‘' # ŠO‘‚Ì“VŒó‚Í‘S‘‚É‚µ‚Ä‚¨‚­
+            area_map[yasai_area] = 'ï¿½Sï¿½ï¿½' # ï¿½Oï¿½ï¿½ï¿½Ì“Vï¿½ï¿½Í‘Sï¿½ï¿½ï¿½É‚ï¿½ï¿½Ä‚ï¿½ï¿½ï¿½
         else:
             area_map[yasai_area] = yasai_area
 
@@ -111,3 +189,5 @@ def preprocess_train_test(train_data,test_data, weather_data):
 # class Train:
 
 # class Test(Train):
+
+
