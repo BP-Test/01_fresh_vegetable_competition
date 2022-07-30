@@ -22,6 +22,8 @@ class Weather():
         """
         # TODO: add description
         """
+        
+        # path to data (defalut)
         self.data_path = '../data/'
         
         # 地名の変換
@@ -61,10 +63,7 @@ class Weather():
             self.weather = pd.read_csv(self.data_path + 'weather.csv')
         
         # 日付処理
-        date_series = pd.to_datetime(self.weather['date'].astype(str))
-        self.weather['year'] = date_series.dt.year
-        self.weather['month'] = date_series.dt.month
-        self.weather['day'] = date_series.dt.day
+        self.weather = self.add_variable(self.weather)
         
         # 地名を都道府県名に変換
         self.weather['area'] = self.weather.area.replace(self.update_area_map)
@@ -79,6 +78,13 @@ class Weather():
         self.__dtypes__ =  tmp.head(1).dtypes.astype('str').str.replace('64', '32').to_dict()
     
     
+    def add_variable(self, df):
+        # 日付処理
+        date_series = pd.to_datetime(df['date'].astype(str))
+        df['year'] = date_series.dt.year
+        df['month'] = date_series.dt.month
+        df['day'] = date_series.dt.day
+        return df
     
     
     
@@ -134,6 +140,66 @@ class Weather():
         return pd.concat([tmp1, tmp2])
 
 
+
+class Preprocess():
+    def __init__(self,):
+        # path to data (defalut)
+        self.data_path = '../data/'
+        
+        
+    def read_from_csv(self, data_path = None):
+        
+        if data_path is not None:
+            self.data_path = data_path
+        else:
+            pass
+        
+        # read_csv
+        self.train = pd.read_csv(self.data_path + 'train.csv')
+        self.test = pd.read_csv(self.data_path + 'test.csv')
+    
+    
+    def preprocess_train_test(self):
+        """ 前処理
+        #TODO:メインの処理を書く
+        """
+        # データ読み込み
+        self.read_from_csv()
+        
+        # 不要な情報を削除
+        self.drop_unusable_info()
+        
+        # 時間の情報￥追加
+        self.train = self.add_variable(self.train)
+        self.test = self.add_variable(self.test)
+    
+    
+    def add_variable(self, df):
+        #TODO:Weatherクラス継承時に削除
+        # 日付処理
+        date_series = pd.to_datetime(df['date'].astype(str))
+        df['year'] = date_series.dt.year
+        df['month'] = date_series.dt.month
+        df['day'] = date_series.dt.day
+        return df
+    
+    
+    
+    def drop_unusable_info(self):
+        # テストデータに存在する野菜のみを対象にする。
+        self.train = self.train[self.train['kind'].isin(self.test['kind'].unique())]
+    
+    
+    
+    def fill_na(self):
+        # トレーニングデータの欠損値を埋める
+        pass
+    
+    
+    
+    def merge_additional_features(self):
+        # TODO:データの結合
+        pass
 
 
 # =========================================================================================================================
