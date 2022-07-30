@@ -1,5 +1,6 @@
 # Path settings
 import sys
+from xmlrpc.client import Boolean
 sys.path.append('../src/')      # import 用のパスの追加
 
 # default packages
@@ -42,43 +43,102 @@ class Weather():
         
         # テストデータで利用する地理情報に絞り込み
         test_df = pd.read_csv(self.data_path + 'test.csv', usecols = ['area'])
-        self.test_area = set(itertools.chain.from_iterable(pd.Series(test_df.area.unique()).str.split('_').to_list()))
+        self.target_area = set(itertools.chain.from_iterable(pd.Series(test_df.area.unique()).str.split('_').to_list()))
     
 
         
-    def read_csv(self):
-        self.whether = pd.read_csv('weather.csv')
+    def read_from_csv(self, get_faster = True):
+        """データの読み込み
+
+        Args:
+            get_faster (bool, optional): _description_. Defaults to True.
+        """
+        # read_csv
+        if get_faster:
+            self.get_faster()
+            self.weather = pd.read_csv(self.data_path + 'weather.csv', dtype=self.__dtypes__)
+        else:
+            self.weather = pd.read_csv(self.data_path + 'weather.csv')
         
         # 日付処理
-        self.weather['date'] = pd.to_datetime(self.weather['date'].astype(str))
+        date_series = pd.to_datetime(self.weather['date'].astype(str))
+        self.weather['year'] = date_series.dt.year
+        self.weather['month'] = date_series.dt.month
+        self.weather['day'] = date_series.dt.day
         
         # 地名を都道府県名に変換
-        self.weather['weather'] = self.weather.area.replace(self.update_area_map)
-        
-        
+        self.weather['area'] = self.weather.area.replace(self.update_area_map)
     
     
-    def add_agg_features(self, df, scope = ['area', 'year', 'month'], target_cols = None, agg_types = None, head_name = None):
-        
+    
+    
+    def get_faster(self):
+        """csv読み込み時にfloat, intの方を32で指定
+        """
+        tmp = self.weather = pd.read_csv(self.data_path + 'weather.csv', nrows =1)
+        self.__dtypes__ =  tmp.head(1).dtypes.astype('str').str.replace('64', '32').to_dict()
+    
+    
+    
+    
+    
+    def add_agg_features(self, df, scope:list = ['area', 'year', 'month'], target_cols:list = None, agg_types:list = None, add_name:Boolean = True):
+        """特徴量の追加
+
+        Args:
+            df (DataFrame, optional): 編集するデータフレーム. Defaults to None.
+            scope (list, optional): 集計に利用するキー. Defaults to ['area', 'year', 'month'].
+            target_cols (list, optional): 集計したい列名. Defaults to None.
+            agg_types (list, optional): 集計方法. Defaults to None.
+            head_name (Boolean, optional): 列名に追加. Defaults to None.
+
+        Returns:
+            _type_: _description_
+        """
         
         if target_cols is None:
-            target_cols = df.head(1).select_dtypes(float).columns.to_list()
+            target_cols = df.head(1).select_dtypes(['float', 'float32']).columns.to_list()
         
         if agg_types is None:
             agg_types = ['mean','max','min']
         
         
         # 集計
-        tmp_df = df.groupby(scope)[target_cols].agg(agg_types).reset_index()
+        tmp_df = df[target_cols + scope].groupby(scope).agg(agg_types).reset_index()
         
         # マルチカラムの解除
-        if head_name:
-            return tmp_df.set_axis([head_name + '_' + col1 if col2 else col1 for col1, col2 in tmp_df.columns], axis=1)
+        if add_name:
+            tmp_df.set_axis([col1 + '_' + col2 if col2 else col1 for col1, col2 in tmp_df.columns], axis=1, inplace = True)
+            return tmp_df
         else:
-            return tmp_df.set_axis([col1 + '_' + col2 if col2 else col1 for col1, col2 in tmp_df.columns], axis=1)
+            tmp_df.set_axis([col1 for col1, col2 in tmp_df.columns], axis=1, inplace = True)
+            return tmp_df
+        
+    
+    def preprocess(self)-> None:
+        """気象データの処理について一連の処理を関数に
+        """
+        # データの読み込み
+        self.read_from_csv()
+        
+        # 集計作業1：各地の気象情報を月、年単位得で集計
+        tmp1 = self.add_agg_features(self.weather)
+        
+        # 集計作業2：全国の気象情報を月、年単位得で集計
+        tmp2 = self.add_agg_features(df = tmp1, scope=['year', 'month'], agg_types=['mean'], add_name = False)
+        
+        # tmp2にarea情報を追加
+        tmp2['area'] = '全国'
+        
+        # 結合
+        return pd.concat([tmp1, tmp2])
 
 
 
+
+# =========================================================================================================================
+# 以下メモ
+# =========================================================================================================================
 
 def preprocess_weather(weather_data):
     #TODO: Convert it to Class Weather()
