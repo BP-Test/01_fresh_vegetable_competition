@@ -6,7 +6,6 @@ sys.path.append('../src')
 
 from vege_train import TrainModel
 
-
 vege = TrainModel()
 len(vege.kinds)
 vege.get_vege_data(train=False)
@@ -36,5 +35,6 @@ params = {
     "num_boost_round": 50000,
     "early_stopping_rounds": 100
 }
+vege.generate_model_data(file_name='model_input_data')
 vege.light_gbm_benchmark(params=params)
 vege.plot_feature_importance_lightgbm_benchmark(_params=params)

@@ -1,5 +1,6 @@
 # Essential Libraries
 import os
+from pyexpat import model
 import sys
 from pathlib import Path
 from dateutil import parser # Refer to https://qiita.com/xza/items/9618e25a8cb08c44cdb0 for details.
@@ -9,6 +10,7 @@ import pandas as pd
 import numpy as np
 
 #Visualization Libraries
+from IPython.display import display
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -197,6 +199,82 @@ class TrainModel():
 
         #print(mer_df.shape)
         return mer_df
+    def generate_model_data(self,file_name,_lag_list=[1,2,3,6,9,12]):
+        """creates a csv file to hand to a model"""
+        kinds = self.kinds
+        TARGET = self.target
+        mer_df = self.lag_feature_weather(lag_list=_lag_list)
+        agg_cols = [i for i in mer_df.columns if i not in ['kind','date','year','weekno','area','month','amount']]
+        # #TODO : Develop before for kin in kinds:
+        # merdf_group = mer_df.groupby(['kind','year','month'])[agg_cols].mean().reset_index()
+        # merdf_group[TARGET] = merdf_group[TARGET].replace(0,np.nan)
+        # display(merdf_group)
+
+        # # 過去の値を特徴量とする
+        # for i in _lag_list:
+        #     merdf_group[f'{TARGET}_{i}prev'] = merdf_group[TARGET].shift(i)
+
+        # test_df = merdf_group.query('year == 2022 & month == 5')
+        # train_df = merdf_group.query('~(year == 2022 & month == 5)')
+        # train_df = train_df.query('year >= 2018') # 2018年以降のデータで学習
+        # train_df = train_df[train_df[TARGET].notnull()]
+
+        # cat_cols = []
+        # num_cols = [i for i in train_df.columns if i not in [TARGET, 'year', 'month', 'index', 'amount']]
+        # feat_cols = cat_cols + num_cols
+
+        # all_df = pd.concat([train_df, test_df]).reset_index(drop=True)
+        # display(all_df)
+        # all_df[feat_cols] = all_df[feat_cols].fillna(method='bfill')
+        # all_df[feat_cols] = all_df[feat_cols].fillna(method='ffill')
+        # all_df[feat_cols] = all_df[feat_cols].fillna(0)
+        # train_df = all_df.iloc[:-1,:]
+        # all_df.to_csv(self.projpath / f'data/{file_name}.csv',index=False)
+        # print('data saved to', self.projpath / f'data/{file_name}.csv')
+
+        model_input_data = pd.DataFrame()
+        for kind in kinds:
+
+            print(kind)
+            ext_df = mer_df[mer_df['kind'] == kind]
+            gb_df = ext_df.groupby(['year','month'])[agg_cols].mean().reset_index()
+            gb_df[TARGET] = gb_df[TARGET].replace(0,np.nan)
+
+            # 過去の値を特徴量とする
+            for i in _lag_list:
+                gb_df[f'{TARGET}_{i}prev'] = gb_df[TARGET].shift(i)
+
+            test_df = gb_df.query('year == 2022 & month == 5')
+            train_df = gb_df.query('~(year == 2022 & month == 5)')
+            train_df = train_df.query('year >= 2018') # 2018年以降のデータで学習
+            train_df = train_df[train_df[TARGET].notnull()]
+
+            cat_cols = []
+            num_cols = [i for i in train_df.columns if i not in [TARGET, 'year', 'month', 'index', 'amount']]
+            feat_cols = cat_cols + num_cols
+
+            all_df = pd.concat([train_df, test_df])
+            all_df[feat_cols] = all_df[feat_cols].fillna(method='bfill')
+            all_df[feat_cols] = all_df[feat_cols].fillna(method='ffill')
+            all_df[feat_cols] = all_df[feat_cols].fillna(0)
+            # train_df = all_df.iloc[:-1,:]
+            # test_df = all_df.iloc[-1:,:]
+
+            # # バリデーションはHold-out法（一定割合で学習データと評価データの2つに分割）で行う
+
+            # tra_df = train_df.iloc[:-1]
+            # val_df = train_df.iloc[-1:] # 2022年4月のデータでvalidation
+
+            # tra_x = tra_df[feat_cols]
+            # tra_y = tra_df[TARGET]
+            # val_x = val_df[feat_cols]
+            # val_y = val_df[TARGET]
+            # test_x = test_df[feat_cols]
+            # test_y = test_df[TARGET]
+            all_df['kind'] = kind
+            model_input_data = pd.concat([model_input_data,all_df],axis=0)
+        display(model_input_data.shape)
+        model_input_data.to_csv(self.projpath / f'data/{file_name}.csv',index=False)
 
     def light_gbm_benchmark(self,_lag_list=[1,2,3,6,9,12],params=''):
         """train a benchmark model, returns a dictionary of vegetables and its models"""
@@ -277,7 +355,7 @@ class TrainModel():
             feature_imp_dict[kind] = feature_imp
             tra_df_dict[kind] = tra_df
         return model_dict
-            
+
     def plot_feature_importance_lightgbm_benchmark(self,_params):
         """Creates series of plots based on the benchmark model"""
         kinds = self.kinds
