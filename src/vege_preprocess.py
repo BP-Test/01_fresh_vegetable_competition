@@ -5,6 +5,7 @@ sys.path.append('../src/')      # import 用のパスの追加
 
 # default packages
 import itertools
+import json
 import pandas as pd
 import numpy as np
 
@@ -28,10 +29,8 @@ class Weather():
         
         # 地名の変換
         # TODO: make a setting file.
-        self.update_area_map = {
-            '盛岡': '岩手', '浜松': '静岡', '名古屋': '愛知', '水戸': '茨城', '熊谷': '埼玉', '宇都宮': '栃木', '前橋': '群馬', 
-            '徳島': '徳島', '鹿児島': '鹿児島', '長崎': '長崎', '千葉': '千葉', '長野': '長野', '青森': '青森','熊本': '熊本', '東京': '東京'
-            }
+        with open('../resource/area_info.json', 'r', encoding="utf-8") as f:
+            self.update_area_map = json.load(f) 
         
         # 集計処理の記録
         # TODO: make a json file to record aggregate preprocessing
@@ -58,7 +57,7 @@ class Weather():
         # read_csv
         if get_faster:
             self.get_faster()
-            self.weather = pd.read_csv(self.data_path + 'weather.csv', dtype=self.__dtypes__)
+            self.weather = pd.read_csv(self.data_path + 'weather.csv', dtype=self.d_types)
         else:
             self.weather = pd.read_csv(self.data_path + 'weather.csv')
         
@@ -66,7 +65,7 @@ class Weather():
         self.weather = self.add_variable(self.weather)
         
         # 地名を都道府県名に変換
-        self.weather['area'] = self.weather.area.replace(self.update_area_map)
+        #self.weather['area'] = self.weather.area.replace(self.update_area_map)
     
     
     
@@ -74,8 +73,8 @@ class Weather():
     def get_faster(self):
         """csv読み込み時にfloat, intの方を32で指定
         """
-        tmp = self.weather = pd.read_csv(self.data_path + 'weather.csv', nrows =1)
-        self.__dtypes__ =  tmp.head(1).dtypes.astype('str').str.replace('64', '32').to_dict()
+        tmp = pd.read_csv(self.data_path + 'weather.csv', nrows =1)
+        self.d_types =  tmp.head(1).dtypes.astype('str').str.replace('64', '32').to_dict()
     
     
     def add_variable(self, df):
@@ -114,14 +113,14 @@ class Weather():
         
         # マルチカラムの解除
         if add_name:
-            tmp_df.set_axis([col1 + '_' + col2 if col2 else col1 for col1, col2 in tmp_df.columns], axis=1, inplace = True)
+            tmp_df.set_axis([col2 + '_' + col1 if col2 else col1 for col1, col2 in tmp_df.columns], axis=1, inplace = True)
             return tmp_df
         else:
             tmp_df.set_axis([col1 for col1, col2 in tmp_df.columns], axis=1, inplace = True)
             return tmp_df
         
     
-    def preprocess(self)-> None:
+    def weather_preprocess(self)-> None:
         """気象データの処理について一連の処理を関数に
         """
         # データの読み込み
@@ -141,13 +140,15 @@ class Weather():
 
 
 
-class Preprocess():
-    def __init__(self,):
+class Preprocess(Weather):
+    def __init__(self):
+        super().__init__()
+        
         # path to data (defalut)
         self.data_path = '../data/'
         
         
-    def read_from_csv(self, data_path = None):
+    def read_train_test_from_csv(self, data_path = None):
         
         if data_path is not None:
             self.data_path = data_path
@@ -164,12 +165,12 @@ class Preprocess():
         #TODO:メインの処理を書く
         """
         # データ読み込み
-        self.read_from_csv()
+        self.read_train_test_from_csv()
         
         # 不要な情報を削除
-        self.drop_unusable_info()
+        #self.drop_unusable_info()
         
-        # 時間の情報￥追加
+        # 時間の情報を追加
         self.train = self.add_variable(self.train)
         self.test = self.add_variable(self.test)
     
@@ -196,124 +197,69 @@ class Preprocess():
         pass
     
     
+    def get_weather_data(self):
+        # weather
+        self.wea_df = super().weather_preprocess()
     
-    def merge_additional_features(self):
-        # TODO:データの結合
-        pass
-
-
-# =========================================================================================================================
-# 以下メモ
-# =========================================================================================================================
-
-def preprocess_weather(weather_data):
-    #TODO: Convert it to Class Weather()
-    """Preprocess of weather
-
-    Args:
-        weather_data (pd.DataFrame): Raw weather data from competition
-
-    Returns:
-        pd.DataFrame: Preprocessed Data
-    """
-    # Extract year and month column date : sample 20041106 to year=2004 month= 11
-    weather_data['year'] = weather_data['date'].apply(lambda x: int(str(x)[:4]))
-    weather_data['month'] = weather_data['date'].apply(lambda x: int(str(x)[4:6]))
-
-    # out of all the columns, pick up aggregation columns[date, mean_temp,max_temp,max_temp_time,min_temp,min_temp_time,sum_rain,sun_time,mean_humid,area]
-    agg_cols = ['mean_temp', 'max_temp', 'min_temp', 'sum_rain', 'sun_time', 'mean_humid']
-    # create aggregation columns : This will be multiindex
-    gb_df = weather_data.groupby(['area', 'year', 'month'])[agg_cols].agg(['mean','max','min']).reset_index()
-    # Rename columns to collapse multi index
-    new_cols = []
-    for col1, col2 in gb_df.columns:
-        if col2:
-            new_cols.append(col2+'_'+col1)
-        else:
-            new_cols.append(col1)
-    gb_df.columns = new_cols
-    # Pick up aggregation columns
-    agg_cols = [i for i in gb_df.columns if i not in ['year', 'month', 'area']]
-    tmp_df = gb_df.groupby(['year', 'month'])[agg_cols].agg(['mean']).reset_index()
-
-    new_cols = []
-    for col1, col2 in tmp_df.columns:
-        new_cols.append(col1)
-
-    tmp_df.columns = new_cols
-    tmp_df['area'] = '�S��'
-    tmp_df = tmp_df[gb_df.columns]
-    tmp_df
-    wea_df = pd.concat([gb_df, tmp_df])
-    #TODO Dependencies from preprocess_train_test
-
-    return wea_df
-#weather_data = pd.read_csv('../data/weather.csv')
-#print(weather_data.shape)
-#weather_pre = preprocess_weather(weather_data)
-
-def preprocess_train_test(train_data,test_data, weather_data):
-    #TODO: Convert it to Class Train(), Test(Train)
-    """Preprocess of train and test
-
-    Args:
-        train_data (pd.DataFrame): _description_
-        test_data (pd.DataFrame): _description_
-        weather_data (pd.DataFrame): _description_
-
-    Returns:
-        pd.DataFrame: _description_
-    """
-    wea_areas = weather_data['area'].unique()
-    wea_areas
-    all_df = pd.concat([train_data, test_data])
-    all_df
-    area_pairs = all_df['area'].unique()
-    yasai_areas = set()
-
-    for area_pair in area_pairs:
-        areas = area_pair.split('_')
-        yasai_areas |= set(areas)
-    yasai_areas
-    area_map = {}
-
-    update_area_map = {
-    '���':'����','�{��':'���','�É�':'�l��','����':'�ߔe','�_�ސ�':'���l','���m':'���É�','���':'����','�k�C��':'�эL','�e�n':'�S��',
-    '����':'�_��','����':'����','���':'�F�J','����':'�S��','�R��':'�b�{','�Ȗ�':'�F�s�{','�Q�n':'�O��','���Q':'���R'}
-
-    for yasai_area in yasai_areas:
-        if yasai_area not in wea_areas and yasai_area not in update_area_map:
-            area_map[yasai_area] = '�S��' # �O���̓V��͑S���ɂ��Ă���
-        else:
-            area_map[yasai_area] = yasai_area
-
-    area_map = {**area_map, **update_area_map}
-    area_map
-    all_df['area'] = all_df['area'].apply(lambda x: '_'.join([area_map[i] for i in x.split('_')]))
-    all_df
-    train_preprocessed = all_df.iloc[:train_data.shape[0]]
-    test_preprocessed = all_df.iloc[train_data.shape[0]:]
-    return train_preprocessed, test_preprocessed
-
-# test_data  = pd.read_csv('../data/preprocessed_test.csv')
-# train_data= pd.read_csv('../data/preprocessed_train.csv')
-# train_pre, test_pre = preprocess_train(train_data,test_data,weather_data)
-
-
-# # Design Idea
-# class Weather:
-#     def __init__(self,):
     
-#     def aggregation_1(s):
-#     def aggregation_2(s):
     
-#     def preprocess(data):
-#         data = aggregation_1(data)
-#         data = aggregation_2(a)
+    def add_weather_features(self):
+        all_df = pd.concat([self.train, self.test])
+        
+        area_pairs = all_df['area'].unique()
+        
+        yasai_areas = set()
+        
+        for area_pair in area_pairs:
+            areas = area_pair.split('_')
+            yasai_areas |= set(areas)
+        
+        
+        wea_areas = self.wea_df['area'].unique()
+        
+        area_map = {}
 
+        update_area_map = {
+            '岩手':'盛岡','宮城':'仙台','静岡':'浜松','沖縄':'那覇','神奈川':'横浜','愛知':'名古屋','茨城':'水戸','北海道':'帯広','各地':'全国',
+            '兵庫':'神戸','香川':'高松','埼玉':'熊谷','国内':'全国','山梨':'甲府','栃木':'宇都宮','群馬':'前橋','愛媛':'松山'
+        }
 
-# class Train:
+        for yasai_area in yasai_areas:
+            if yasai_area not in wea_areas and yasai_area not in update_area_map:
+                area_map[yasai_area] = '全国' # 外国の天候は全国にしておく
+            else:
+                area_map[yasai_area] = yasai_area
 
-# class Test(Train):
+        area_map = {**area_map, **update_area_map}
+        all_df['area'] = all_df['area'].apply(lambda x: '_'.join([area_map[i] for i in x.split('_')]))
+        
+        test_df = all_df.iloc[self.train.shape[0]:]
+        train_df = all_df.iloc[:self.train.shape[0]]  
 
-
+        area_pairs = all_df['area'].unique()
+        target_cols = [i for i in self.wea_df.columns if i != 'area']
+        
+        area_pair_dfs = []
+        
+        for area_pair in area_pairs:
+            areas = area_pair.split('_')
+            if len(areas) > 0:
+                area = areas[0]
+                base_tmp_df = self.wea_df[self.wea_df['area'] == area]
+                base_tmp_df = base_tmp_df[target_cols].reset_index(drop=True)
+                for area in areas[1:]:
+                    tmp_df = self.wea_df[self.wea_df['area'] == area]
+                    tmp_df = tmp_df[target_cols].reset_index(drop=True)
+                    base_tmp_df = base_tmp_df.add(tmp_df)
+                base_tmp_df /= len(areas)
+                base_tmp_df['area'] = area_pair
+                area_pair_dfs.append(base_tmp_df)
+        # 結合
+        self.wea_df = pd.concat(area_pair_dfs)#.astype({'year' : 'int32', 'month' : 'int32'})
+    
+    
+    def save_weather_df(self):
+        self.wea_df.to_save(self.data_path + 'preprocess_weather_data.csv')
+    
+    
+    
