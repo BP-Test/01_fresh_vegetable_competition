@@ -28,6 +28,7 @@ The two main components in any Data Science project are data and algorithms. The
 ## Book
 
 - [Machine Learning Design Patterns: Solutions to Common Challenges in Data Preparation, Model Building, and Mlops](https://www.amazon.co.jp/-/en/Valliappa-Lakshmanan/dp/1098115783)
+  - Explains about this book: [design-patterns-for-machine-learning](https://towardsdatascience.com/design-patterns-for-machine-learning-410be845c0db)
 
 
 ## Terms
