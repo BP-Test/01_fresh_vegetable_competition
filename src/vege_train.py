@@ -1,6 +1,5 @@
 # Essential Libraries
 import os
-from pyexpat import model
 import sys
 from pathlib import Path
 from dateutil import parser # Refer to https://qiita.com/xza/items/9618e25a8cb08c44cdb0 for details.
@@ -199,7 +198,7 @@ class TrainModel():
 
         #print(mer_df.shape)
         return mer_df
-    def generate_model_data(self,file_name,_lag_list=[1,2,3,6,9,12]):
+    def generate_model_data(self,file_name='default_name',_lag_list=[1,2,3,6,9,12],save_as_csv=True):
         """creates a csv file to hand to a model"""
         kinds = self.kinds
         TARGET = self.target
@@ -274,7 +273,11 @@ class TrainModel():
             all_df['kind'] = kind
             model_input_data = pd.concat([model_input_data,all_df],axis=0)
         display(model_input_data.shape)
-        model_input_data.to_csv(self.projpath / f'data/{file_name}.csv',index=False)
+        if save_as_csv==True:
+            model_input_data.to_csv(self.projpath / f'data/{file_name}.csv',index=False)
+            return model_input_data
+        else:
+            return model_input_data
 
     def light_gbm_benchmark(self,_lag_list=[1,2,3,6,9,12],params=''):
         """train a benchmark model, returns a dictionary of vegetables and its models"""
