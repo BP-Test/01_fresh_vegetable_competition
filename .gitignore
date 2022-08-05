@@ -129,5 +129,6 @@ dmypy.json
 .pyre/
 
 # remove newly gennrated csv files
-*.csv
+#*.csv
+*.xlsx
 *.db
