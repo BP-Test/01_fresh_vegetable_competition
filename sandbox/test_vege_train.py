@@ -37,6 +37,7 @@ params = {
 }
 vege.generate_model_data(file_name='model_input_data')
 vege.generate_model_data(file_name='model_input_data',save_as_csv=False) # Does not save as csv
+vege.generate_model_data_2(file_name='model_input_data_daily') # Does not save as csv
 
 vege.light_gbm_benchmark(params=params)
 vege.plot_feature_importance_lightgbm_benchmark(_params=params)

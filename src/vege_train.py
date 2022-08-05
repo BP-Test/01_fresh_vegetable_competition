@@ -278,6 +278,56 @@ class TrainModel():
             return model_input_data
         else:
             return model_input_data
+    def generate_model_data_2(self,file_name='default_name',_lag_list=[1,2,3,6,9,12],_lag_list2 = [1,2,3,6,9,12], save_as_csv=True):
+        """creates a csv file to hand to a model, data granularity at daily level
+
+        Args:
+            file_name (str, optional): Output FileName. Defaults to 'default_name'.
+            _lag_list (list, optional): lag month Creates aggregation N months before. Defaults to [1,2,3,6,9,12].
+            _lag_list2 (list, optional): lag day: Creates "mode_price" N days before. Defaults to [1,2,3,6,9,12].
+            save_as_csv (bool, optional):If True saves as a .csv file with specified file_name. Defaults to True.
+
+        Returns:
+            pd.DataFrame: DataFrame that can be used for training.
+        """
+        kinds = self.kinds
+        TARGET = self.target
+        mer_df = self.lag_feature_weather(lag_list=_lag_list).query('amount!=0')
+        agg_cols = [i for i in mer_df.columns if i not in ['kind','date','year','weekno','area','month','amount']]
+        # #TODO : Develop before for kin in kinds:
+        model_input_data = pd.DataFrame()
+        for kind in kinds:
+
+            print(kind)
+            ext_df = mer_df[mer_df['kind'] == kind]
+            gb_df = ext_df.groupby(['year','month','date'])[agg_cols].mean().reset_index()
+            gb_df[TARGET] = gb_df[TARGET].replace(0,np.nan)
+
+            # 過去の値を特徴量とする
+            for i in _lag_list2:
+                gb_df[f'{TARGET}_{i}prev_days'] = gb_df[TARGET].shift(i)
+
+            test_df = gb_df.query('year == 2022 & month == 5')
+            train_df = gb_df.query('~(year == 2022 & month == 5)')
+            train_df = train_df.query('year >= 2018') # 2018年以降のデータで学習
+            train_df = train_df[train_df[TARGET].notnull()]
+
+            cat_cols = []
+            num_cols = [i for i in train_df.columns if i not in [TARGET, 'year', 'month', 'date', 'index', 'amount']]
+            feat_cols = cat_cols + num_cols
+
+            all_df = pd.concat([train_df, test_df])
+            all_df[feat_cols] = all_df[feat_cols].fillna(method='bfill')
+            all_df[feat_cols] = all_df[feat_cols].fillna(method='ffill')
+            all_df[feat_cols] = all_df[feat_cols].fillna(0)
+            all_df['kind'] = kind
+            model_input_data = pd.concat([model_input_data,all_df],axis=0)
+        display(model_input_data.shape)
+        if save_as_csv==True:
+            model_input_data.to_csv(self.projpath / f'data/{file_name}.csv',index=False)
+            return model_input_data
+        else:
+            return model_input_data
 
     def light_gbm_benchmark(self,_lag_list=[1,2,3,6,9,12],params=''):
         """train a benchmark model, returns a dictionary of vegetables and its models"""
