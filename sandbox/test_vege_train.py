@@ -38,6 +38,7 @@ params = {
 vege.generate_model_data(file_name='model_input_data')
 vege.generate_model_data(file_name='model_input_data',save_as_csv=False) # Does not save as csv
 vege.generate_model_data_2(file_name='model_input_data_daily',_lag_list=[1,2,3,6,9,12],_lag_list2 = [1,2,3,6,9,12], save_as_csv=False) # _laglist: monthly lag for aggregated columns, _lag_list2: daily lag for target variable
-
+vege.generate_model_data_2(file_name='default_name',_lag_list=[1,2,3,6,9,12],_lag_list2 = [1,2,3,6,9,12], save_as_csv=False, for_submission=False) # For Model Training
+vege.generate_model_data_2(file_name='default_name',_lag_list=[1,2,3,6,9,12],_lag_list2 = [1,2,3,6,9,12], save_as_csv=False, for_submission=True) # For Result Submission
 vege.light_gbm_benchmark(params=params)
 vege.plot_feature_importance_lightgbm_benchmark(_params=params)

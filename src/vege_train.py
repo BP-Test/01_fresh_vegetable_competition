@@ -278,7 +278,7 @@ class TrainModel():
             return model_input_data
         else:
             return model_input_data
-    def generate_model_data_2(self,file_name='default_name',_lag_list=[1,2,3,6,9,12],_lag_list2 = [1,2,3,6,9,12], save_as_csv=True):
+    def generate_model_data_2(self,file_name='default_name',_lag_list=[1,2,3,6,9,12],_lag_list2 = [1,2,3,6,9,12], save_as_csv=False, for_submission=False):
         """creates a csv file to hand to a model, data granularity at daily level
 
         Args:
@@ -286,6 +286,7 @@ class TrainModel():
             _lag_list (list, optional): lag month Creates aggregation N months before. Defaults to [1,2,3,6,9,12].
             _lag_list2 (list, optional): lag day: Creates "mode_price" N days before. Defaults to [1,2,3,6,9,12].
             save_as_csv (bool, optional):If True saves as a .csv file with specified file_name. Defaults to True.
+            for_submission (bool, optional):If False returns a pd.DataFrame for model building, if True it creates DataFrame for prediction. Defaults to False.
 
         Returns:
             pd.DataFrame: DataFrame that can be used for training.
@@ -323,6 +324,12 @@ class TrainModel():
             all_df['kind'] = kind
             model_input_data = pd.concat([model_input_data,all_df],axis=0)
         display(model_input_data.shape)
+        if for_submission ==False:
+            # Extracts all data that is not in 2022-05
+            model_input_data = model_input_data[~((model_input_data['year'] == 2022) & (model_input_data['month'] == 5))]
+        else:
+            # Extract all data that is in 2022-05
+            model_input_data = model_input_data[((model_input_data['year'] == 2022) & (model_input_data['month'] == 5))]
         if save_as_csv==True:
             model_input_data.to_csv(self.projpath / f'data/{file_name}.csv',index=False)
             return model_input_data
