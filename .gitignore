@@ -130,4 +130,5 @@ dmypy.json
 
 # remove newly gennrated csv files
 *.csv
+*.xlsx
 *.db
