@@ -15,13 +15,13 @@ import lightgbm as lgb
 
 
 class Model(object):
-    def __init__(self, params):
+    def __init__(self, params, model_type = 'lightGBM'):
         self.params = params
-        self.model_type = 'lightGBM'
+        self.model_type = model_type
         pass
     
     
-    def Dataset(self, X, y):
+    def dataset(self, X, y):
         if self.model_type == 'lightGBM':
             # Convert data for LightGMB
             return lgb.Dataset(X, y)
@@ -39,6 +39,20 @@ class Model(object):
     
     def predict(self, *args):
         return self.trained_model.predict(*args)
+    
+    
+    
+    def metrics(self, true_y, pred_y):
+        return {
+            'RMSPE' : self.root_mean_squared_percentage_error(true_y, pred_y)
+        }
+    
+    
+    def root_mean_squared_percentage_error(self, true_y, pred_y):
+        """metric for modle evaluation"""
+        rmspe = np.sqrt(np.mean(((pred_y - true_y) / true_y)**2))*100
+        return rmspe
+
 
 
 
@@ -62,7 +76,7 @@ class Experiments():
         
     
     
-    def Ready_experiment(self, settings = None):
+    def ready_experiment(self, settings = None):
         # Experimentの生成
         self.experiment = mlflow.get_experiment_by_name(self.EXPERIMENT_NAME)
         
@@ -87,7 +101,7 @@ class Experiments():
     
     
     
-    def Start_experiment(self, X, y, verification_type = 'CV'):
+    def start_experiment(self, X, y, verification_type = 'CV'):
         
         with mlflow.start_run(experiment_id=self.experiment_id) as run:
             
@@ -98,7 +112,11 @@ class Experiments():
             
             # cross validation learning
             if verification_type == 'CV':
-                self.CV_learning(X, y)
+                self.cross_validate_learning(X, y)
+            
+            
+            # add tag info
+            mlflow.set_tags(self.settings['tag_info'])
             
             
         # At the end of experiments
@@ -109,7 +127,7 @@ class Experiments():
     
     
     
-    def CV_learning(self, X, Y):
+    def cross_validate_learning(self, X, Y):
         # k-foldの生成
         self.kf = KFold(
             **self.settings['CV']
@@ -134,8 +152,8 @@ class Experiments():
             y_train, y_valid = Y[train_indices], Y[valid_indices]
 
             # Convert data for LightGMB
-            lgb_train = model.Dataset(X_train, y_train)
-            lgb_eval = model.Dataset(X_valid, y_valid)
+            lgb_train = model.dataset(X_train, y_train)
+            lgb_eval = model.dataset(X_valid, y_valid)
 
             # model train
             model.train(
@@ -145,19 +163,17 @@ class Experiments():
             
             # 予測
             y_valid_pred = model.predict(X_valid)
-
-            # calc score
-            score = mean_absolute_error(y_valid, y_valid_pred)
+            
+            # score metrics
+            score = model.metrics(y_valid, y_valid_pred)
             
             # record the  metrics
             mlflow.log_metrics(
-                {
-                    'score - mean absolute error' : score
-                },
+                score,
                 step = fold
             )
             print(f'=== fold {fold} MAE: {score}')
-            valid_scores.append(score)
+            valid_scores.append(list(score.values()))
         
         # Get mean of model scores
         cv_score = np.mean(valid_scores)
@@ -167,3 +183,6 @@ class Experiments():
             }
         )
         print(f'=== CV score: {cv_score}')
+    
+    
+    

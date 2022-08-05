@@ -80,7 +80,7 @@ class TrainModel():
         """metric for modle evaluation"""
 
         rmspe = np.sqrt(np.mean(((pred_y - true_y) / true_y)**2))*100
-        return rmpse
+        return rmspe
 
     def get_vege_data(self, train=True):
         """get preprocessed data from data/ to work on"""
