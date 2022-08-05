@@ -10,57 +10,8 @@ from sklearn.metrics import mean_absolute_error
 from sklearn.model_selection import KFold
 from sklearn.model_selection import train_test_split
 
-# import model framework
-import lightgbm as lgb
-
-
-class Model(object):
-    def __init__(self, params, model_type = 'lightGBM'):
-        self.params = params
-        self.model_type = model_type
-        pass
-    
-    
-    def dataset(self, X, y):
-        if self.model_type == 'lightGBM':
-            # Convert data for LightGMB
-            return lgb.Dataset(X, y)
-    
-    
-    def train(self, train_data, valid_data):
-        # lightGBMの場合
-        if self.model_type == 'lightGBM':
-            
-            self.trained_model = lgb.train(
-                **self.params,
-                train_set=train_data,
-                valid_sets=valid_data
-                )
-    
-    def predict(self, *args):
-        return self.trained_model.predict(*args)
-    
-    
-    
-    def metrics(self, true_y, pred_y):
-        return {
-            'RMSPE' : self.root_mean_squared_percentage_error(true_y, pred_y)
-        }
-    
-    
-    def root_mean_squared_percentage_error(self, true_y, pred_y):
-        """metric for modle evaluation"""
-        rmspe = np.sqrt(np.mean(((pred_y - true_y) / true_y)**2))*100
-        return rmspe
-
-
-
-
-
-
-
-
-
+# model import
+from models import Model
 
 class Experiments():
     def __init__(self, EXPERIMENT_NAME, DB_DIR_PATH = '../server/', ARTIFACT_LOCATION = '../data/'):
@@ -118,6 +69,11 @@ class Experiments():
             # add tag info
             mlflow.set_tags(self.settings['tag_info'])
             
+            # add data processing info
+            mlflow.log_params(
+                self.settings['data_provessing']
+            )
+
             
         # At the end of experiments
         print('----------------------------------------------------')
