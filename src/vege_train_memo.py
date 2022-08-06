@@ -1,6 +1,7 @@
 # default
 import numpy as np
 import pandas as pd
+from functools import partial
 
 # Manage experiments
 import mlflow
@@ -13,6 +14,16 @@ from sklearn.model_selection import train_test_split
 # model import
 from models import Model
 
+# import Optuna
+import optuna
+from optuna.integration.mlflow import MLflowCallback
+
+
+
+
+
+
+
 class Experiments():
     def __init__(self, EXPERIMENT_NAME, DB_DIR_PATH = '../server/', ARTIFACT_LOCATION = '../data/'):
         # mlflow setting
@@ -21,11 +32,10 @@ class Experiments():
         self.ARTIFACT_LOCATION = '../data/'
         self.EXPERIMENT_NAME = EXPERIMENT_NAME
         
-        # トラッキングサーバの（バックエンドの）場所を指定
-        TRACKING_URL = f'sqlite:///{self.DB_PATH}'
-        mlflow.set_tracking_uri(TRACKING_URL)
         
-    
+        # locate tracking server
+        self.TRACKING_URL = f'sqlite:///{self.DB_PATH}'
+        
     
     def ready_experiment(self, settings = None):
         # Experimentの生成
@@ -45,35 +55,48 @@ class Experiments():
         
         # Get setting info
         if settings is not None:
-            self.settings = settings
+            self.settings = settings            
             
-            # modelのパラメータを記録する
-            self.param_dict = settings['model_params']
+            # Add learning Class
+            self.learning_process = Learning(settings['model_params'])
     
+    
+    def optimize(self, X, y):
+        # mlflow callbacks
+        self.ml_callback = MLflowCallback(
+            tracking_uri=self.TRACKING_URL,
+            metric_name="RPMSE",
+        )
+        
+        # Conduct optimizing model
+        self.learning_process.optimizer(X, y, callbacks = [self.ml_callback])
     
     
     def start_experiment(self, X, y, verification_type = 'CV'):
+        
+        
+        # Connect to tracking server
+        mlflow.set_tracking_uri(self.TRACKING_URL)
         
         with mlflow.start_run(experiment_id=self.experiment_id) as run:
             
             # record model parameter settings
             mlflow.log_params(
-                self.param_dict
+                self.learning_process.param_dict['params']
             )
-            
-            # cross validation learning
-            if verification_type == 'CV':
-                self.cross_validate_learning(X, y)
-            
             
             # add tag info
             mlflow.set_tags(self.settings['tag_info'])
             
             # add data processing info
             mlflow.log_params(
-                self.settings['data_provessing']
+                self.settings['data_processing']
             )
-
+            
+            # cross validation learning
+            if verification_type == 'CV':
+                self.learning_process.cross_validate_learning(X, y, self.settings['CV'])
+            
             
         # At the end of experiments
         print('----------------------------------------------------')
@@ -82,56 +105,99 @@ class Experiments():
     
     
     
+    def best_model_predict(self, X_test):
+        return self.learning_process.model.predict(X_test)
+
+
+
+
+
+
+
+
+
+
+class Learning():
+    def __init__(self, param_settings):
+        
+        # modelのパラメータを記録する
+        self.param_dict = param_settings
     
-    def cross_validate_learning(self, X, Y):
+    
+    def learning_model(self, X_train, X_valid, y_train, y_valid, trail = None):
+        # generate instance
+        self.model = Model(self.param_dict)
+        
+
+        # Convert data for LightGMB
+        lgb_train = self.model.dataset(X_train, y_train)
+        lgb_eval = self.model.dataset(X_valid, y_valid)
+
+        # model train
+        self.model.train(
+            train_data = lgb_train, 
+            valid_data = lgb_eval
+            )
+        
+        # 予測
+        y_valid_pred = self.model.predict(X_valid)
+        
+        # score metrics
+        self.score = self.model.metrics(y_valid, y_valid_pred)
+        
+        # return
+        return self.model.evaluate(y_valid, y_valid_pred)
+    
+    
+    
+    def optimizer(self, X, y, callbacks = None):
+        
+        X_train, X_valid, y_train, y_valid = train_test_split(X, y)
+        
+        # create optimizer object
+        self.study = optuna.create_study()
+        
+        # exec optimizer
+        self.study.optimize(
+            partial(self.learning_model, X_train, X_valid, y_train, y_valid), 
+            n_trials=100,
+            callbacks = callbacks
+            )
+    
+    
+    
+    def cross_validate_learning(self, X, Y, CV_setting):
         # k-foldの生成
         self.kf = KFold(
-            **self.settings['CV']
+            **CV_setting
             )
         
         # record validation score
         valid_scores = []
         
-        # モデルの学習に利用したパラメータを記録
-        mlflow.log_params(
-            self.settings['CV']
-            )
-        
-        
-        # generate instance
-        model = Model(self.param_dict)
-        
+        # Cross Validation Learning
         for fold, (train_indices, valid_indices) in enumerate(self.kf.split(X)):
+            
             
             # split X, y into train data and valid data
             X_train, X_valid = X[train_indices], X[valid_indices]
             y_train, y_valid = Y[train_indices], Y[valid_indices]
-
-            # Convert data for LightGMB
-            lgb_train = model.dataset(X_train, y_train)
-            lgb_eval = model.dataset(X_valid, y_valid)
-
-            # model train
-            model.train(
-                train_data = lgb_train, 
-                valid_data = lgb_eval
-                )
             
-            # 予測
-            y_valid_pred = model.predict(X_valid)
             
-            # score metrics
-            score = model.metrics(y_valid, y_valid_pred)
+            # learning
+            self.learning_model(X_train, X_valid, y_train, y_valid)
+            
             
             # record the  metrics
             mlflow.log_metrics(
-                score,
+                self.score,
                 step = fold
             )
-            print(f'=== fold {fold} MAE: {score}')
-            valid_scores.append(list(score.values()))
+            print(f'=== fold {fold} MAE: {self.score}')
+            valid_scores.append(list(self.score.values()))
         
         # Get mean of model scores
+        # TODO: Make mlflow decorator in Environment class 
         cv_score = np.mean(valid_scores)
         mlflow.log_metrics(
             {
