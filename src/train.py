@@ -47,6 +47,8 @@ class Experiments():
         else:
             pass
     
+    
+    
     def ready_experiment(self, settings = None):
         # Experimentの生成
         self.experiment = mlflow.get_experiment_by_name(self.EXPERIMENT_NAME)
@@ -61,7 +63,6 @@ class Experiments():
         else:
             # 当該Experiment存在するとき、IDを取得
             self.experiment_id = self.experiment.experiment_id
-            
         
         # Get setting info
         if settings is not None:
@@ -69,6 +70,9 @@ class Experiments():
             
             # Add learning Class
             self.learning_process = Learning(settings['model_params'])
+    
+    
+    
     
     
     def optimize(self, X, y):
@@ -82,8 +86,10 @@ class Experiments():
         self.learning_process.optimizer(X, y, callbacks = [self.ml_callback])
     
     
+    
+    
+    
     def start_experiment(self, X, y, verification_type = 'CV'):
-        
         
         # Connect to tracking server
         mlflow.set_tracking_uri(self.TRACKING_URL)
@@ -112,6 +118,7 @@ class Experiments():
         print('----------------------------------------------------')
         print('command1: cd ' + self.DB_DIR_PATH)
         print('command2: mlflow ui --backend-store-uri sqlite:///mlruns.db')
+    
     
     
     
@@ -160,6 +167,10 @@ class Learning():
     
     
     
+    
+    
+    
+    
     def optimizer(self, X, y, callbacks = None):
         
         X_train, X_valid, y_train, y_valid = train_test_split(X, y)
@@ -173,6 +184,9 @@ class Learning():
             n_trials=100,
             callbacks = callbacks
             )
+    
+    
+    
     
     
     
