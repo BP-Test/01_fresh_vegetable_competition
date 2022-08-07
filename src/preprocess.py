@@ -22,7 +22,15 @@ class Weather():
         # path to data (defalut)
         self.data_path = '../data/'
         
-
+        # setting for data generating process
+        self.setting = {
+            'add_variable' : [
+                {'roll' : 7,  'lag' : 10, 'agg' : 'mean'}, 
+                {'roll' : 14, 'lag' : 14, 'agg' : 'mean'},
+                {'roll' : 14,  'lag' : 28, 'agg' : 'mean'}
+            ]
+        }
+        
         
     def read_from_csv(self):
         """データの読み込み
@@ -59,7 +67,13 @@ class Weather():
                 ]
             + 
             [
-                self.add_lagged_variable(self.target_weather_info, roll = 7, lag = 10)
+                self.add_lagged_variable(
+                    self.target_weather_info, 
+                    roll = pattern['roll'], 
+                    lag = pattern['lag'], 
+                    agg=pattern['agg']
+                    )
+                for pattern in self.setting['add_variable']
                 ],
             axis = 1
             )
