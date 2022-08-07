@@ -1,3 +1,8 @@
+# Setting
+import os
+import sqlite3
+from pathlib import Path
+
 # default
 import numpy as np
 import pandas as pd
@@ -25,17 +30,22 @@ from optuna.integration.mlflow import MLflowCallback
 
 
 class Experiments():
-    def __init__(self, EXPERIMENT_NAME, DB_DIR_PATH = '../server/', ARTIFACT_LOCATION = '../data/'):
+    def __init__(self, EXPERIMENT_NAME, DB_DIR_PATH = '../server/', ARTIFACT_LOCATION = '/data/'):
         # mlflow setting
         self.DB_DIR_PATH = DB_DIR_PATH
         self.DB_PATH = DB_DIR_PATH +'mlruns.db'
-        self.ARTIFACT_LOCATION = '../data/'
+        self.ARTIFACT_LOCATION = Path('.').resolve().parents[0].__str__().replace('\\', '/') + ARTIFACT_LOCATION
         self.EXPERIMENT_NAME = EXPERIMENT_NAME
-        
         
         # locate tracking server
         self.TRACKING_URL = f'sqlite:///{self.DB_PATH}'
         
+        # make DB
+        if 'mlruns.db' not in os.listdir('../server/'):
+            os.makedirs(os.path.dirname(self.DB_PATH), exist_ok=True)  # 親ディレクトリなければ作成
+            conn = sqlite3.connect(self.DB_PATH)  # バックエンド用DBを作成
+        else:
+            pass
     
     def ready_experiment(self, settings = None):
         # Experimentの生成
